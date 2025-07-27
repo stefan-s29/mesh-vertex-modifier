@@ -14,6 +14,8 @@ Compatible with Godot v4.4.
 When you select a MeshInstance3D node in the scene tree, gizmos should appear at all vertices of the
 mesh. Left click and drag to move the vertices.
 
+In some cases it can be required to reload the project to get the gizmo plugin to work.
+
 ## License
 
 This plugin is licensed under the [Mozilla Public License 2.0 (MPL-2.0)](LICENSE).
