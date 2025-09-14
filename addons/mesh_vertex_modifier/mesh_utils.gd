@@ -26,8 +26,9 @@ static func ensure_array_mesh(mesh: Mesh) -> ArrayMesh:
 		return mesh as ArrayMesh
 
 	var array_mesh := ArrayMesh.new()
-	for i in mesh.get_surface_count():
-		var st := SurfaceTool.new()
-		st.create_from(mesh, i)
-		st.commit(array_mesh)
+	if mesh != null:
+		for i in mesh.get_surface_count():
+			var st := SurfaceTool.new()
+			st.create_from(mesh, i)
+			st.commit(array_mesh)
 	return array_mesh

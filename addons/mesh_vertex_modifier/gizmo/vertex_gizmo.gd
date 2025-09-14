@@ -11,15 +11,10 @@ const SURFACE_ZERO_ID = 0;
 
 var _mesh_instance: MeshInstance3D
 var _mesh_edit_wrapper: MeshEditWrapper
+var _initialized := false
 
 func _init(mesh_instance: MeshInstance3D):
-	print('init')
-	_update_mesh_instance(mesh_instance)
-
-func _update_mesh_instance(mesh_instance: MeshInstance3D):
-	_mesh_instance = mesh_instance
-	var array_mesh := MeshUtils.ensure_array_mesh(mesh_instance.mesh)
-	_mesh_edit_wrapper = MeshEditWrapper.new(array_mesh)
+	_set_mesh_instance(mesh_instance)
 
 func _get_handle_name(handle_id: int, secondary: bool) -> String:
 	return 'Vertex ' + str(handle_id)
@@ -30,8 +25,27 @@ func _get_handle_value(handle_id: int, secondary: bool) -> Variant:
 func _has_gizmo(node: Node3D) -> bool:
 	return node is MeshInstance3D and node.mesh != null
 
-func _redraw() -> void:
+func _set_mesh_instance(mesh_instance: MeshInstance3D):
+	_mesh_instance = mesh_instance
+	_update_mesh_edit_wrapper()
+
+func _update_mesh_edit_wrapper():
+	if _mesh_instance.mesh == null:
+		_mesh_edit_wrapper = null
+		_initialized = true
+		return
+	var array_mesh := MeshUtils.ensure_array_mesh(_mesh_instance.mesh)
+	_mesh_instance.mesh = null
+	await _mesh_instance.get_tree().process_frame 
+	_mesh_instance.mesh = array_mesh
+	_mesh_edit_wrapper = MeshEditWrapper.new(array_mesh)
+	_initialized = true
+
+func _redraw() -> void:		
 	clear()
+	
+	if !_initialized:
+		return
 	
 	var node3D = get_node_3d()
 	if !(node3D is MeshInstance3D):
@@ -40,12 +54,20 @@ func _redraw() -> void:
 		return
 	
 	var current_mesh_instance = node3D as MeshInstance3D
-	if _mesh_edit_wrapper.mesh != current_mesh_instance.mesh:
-		_update_mesh_instance(current_mesh_instance)
+	if _has_mesh_been_replaced(current_mesh_instance):
+		_set_mesh_instance(current_mesh_instance)
 	
-	var handles = PackedVector3Array(_mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID))
-	var handles_material = get_plugin().get_material("handles")
-	add_handles(handles, handles_material, [], false, false)
+	if _mesh_edit_wrapper != null:
+		var handles = PackedVector3Array(_mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID))
+		var handles_material = get_plugin().get_material("handles")
+		add_handles(handles, handles_material, [], false, false)
+
+func _has_mesh_been_replaced(current_mesh_instance):
+	var current_mesh_null = current_mesh_instance == null
+	var previous_mesh_wrapper_null = _mesh_edit_wrapper == null
+	if current_mesh_null != previous_mesh_wrapper_null:
+		return true
+	return _mesh_edit_wrapper.mesh != current_mesh_instance.mesh
 
 func _set_handle(handle_id: int, secondary: bool, camera: Camera3D, screen_pos: Vector2):
 	var new_position = _get_3D_point_from_screen_pos(camera, screen_pos)

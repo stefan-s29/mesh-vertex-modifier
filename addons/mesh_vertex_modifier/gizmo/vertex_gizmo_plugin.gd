@@ -11,11 +11,14 @@ func _init():
 	create_material("vertex", Color.RED)
 	create_handle_material("handles")
 
+func _has_gizmo(node: Node3D) -> bool:
+	return node is MeshInstance3D and (node as MeshInstance3D).mesh != null
+
 func _get_gizmo_name():
 	return 'Mesh Vertex Modifier Gizmo'
 
 func _create_gizmo(node: Node3D):
-	if node is MeshInstance3D:
+	if node is MeshInstance3D and node.mesh != null:
 		return VertexGizmo.new(node as MeshInstance3D)
 	else:
 		return null
