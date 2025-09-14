@@ -10,6 +10,7 @@ var id: int
 var _vertices: PackedVector3Array
 var unique_points: Array[Vector3]
 var _unique_points_id_to_vertex_ids: Dictionary[int,Array] = {}
+var _vertices_precommit: PackedVector3Array = PackedVector3Array()
 
 func _init(_id: int, mesh: ArrayMesh):
 	id = _id
@@ -42,3 +43,12 @@ func get_modified_vertices_array(unique_point_id: int, new_position: Vector3) ->
 	for vertex_id in modified_vertices:
 		new_vertices[vertex_id] = new_position
 	return new_vertices
+
+func set_vertices_precommit(vertices_local: PackedVector3Array) -> void:
+	_vertices_precommit = vertices_local.duplicate()
+
+func has_vertices_precommit() -> bool:
+	return _vertices_precommit.size() > 0
+
+func get_vertices_precommit() -> PackedVector3Array:
+	return _vertices_precommit
