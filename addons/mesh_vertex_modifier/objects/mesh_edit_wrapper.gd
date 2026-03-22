@@ -6,6 +6,8 @@
 class_name MeshEditWrapper
 extends RefCounted
 
+const MeshSurfaceVertexFilter = preload("res://addons/mesh_vertex_modifier/objects/mesh_surface_vertex_filter.gd")
+
 var mesh: ArrayMesh
 var _surface_wrappers: Array[MeshSurfaceEditWrapper]
 
@@ -68,45 +70,25 @@ func delete_unique_points(unique_point_ids: Array[int], surface_id: int = 0) -> 
 		push_error("Invalid surface ID in delete_unique_points")
 		return
 
-	var surface_wrapper := _surface_wrappers[surface_id]
-
-	var vertex_ids_to_remove: Dictionary = {}
-	for uid in unique_point_ids:
-		for vid in surface_wrapper._unique_points_id_to_vertex_ids[uid]:
-			vertex_ids_to_remove[vid] = true
-
+	var vertex_ids_to_remove := _collect_vertex_ids_to_remove(unique_point_ids, surface_id)
 	var arrays := mesh.surface_get_arrays(surface_id)
-	var old_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var old_vertex_count := old_vertices.size()
-
-	var new_vertices := PackedVector3Array()
-	var old_to_new: Dictionary = {}
-	for i in old_vertex_count:
-		if not vertex_ids_to_remove.has(i):
-			old_to_new[i] = new_vertices.size()
-			new_vertices.append(old_vertices[i])
-	arrays[Mesh.ARRAY_VERTEX] = new_vertices
-	arrays = _remove_per_vertex_entries(arrays, vertex_ids_to_remove, old_vertex_count)
-
-	var old_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-	if old_indices != null and old_indices.size() > 0:
-		var new_indices := PackedInt32Array()
-		var i := 0
-		while i + 2 < old_indices.size():
-			var a := old_indices[i]
-			var b := old_indices[i + 1]
-			var c := old_indices[i + 2]
-			if not (vertex_ids_to_remove.has(a) or vertex_ids_to_remove.has(b) or vertex_ids_to_remove.has(c)):
-				new_indices.append(old_to_new[a])
-				new_indices.append(old_to_new[b])
-				new_indices.append(old_to_new[c])
-			i += 3
-		arrays[Mesh.ARRAY_INDEX] = new_indices
+	var filtered_arrays := MeshSurfaceVertexFilter.new(arrays, vertex_ids_to_remove).apply()
 
 	var all_arrays: Array = []
 	for s in mesh.get_surface_count():
-		all_arrays.append(arrays if s == surface_id else mesh.surface_get_arrays(s))
+		if s == surface_id:
+			all_arrays.append(filtered_arrays)
+		else:
+			all_arrays.append(mesh.surface_get_arrays(s))
 	_rebuild_all_surfaces(all_arrays)
+
+func _collect_vertex_ids_to_remove(unique_point_ids: Array[int], surface_id: int) -> Dictionary:
+	var vertex_ids_to_remove: Dictionary = {}
+	var surface_wrapper := _surface_wrappers[surface_id]
+	for uid in unique_point_ids:
+		for vid in surface_wrapper._unique_points_id_to_vertex_ids[uid]:
+			vertex_ids_to_remove[vid] = true
+	return vertex_ids_to_remove
 
 func _rebuild_all_surfaces(new_arrays_per_surface: Array) -> void:
 	var surface_count := mesh.get_surface_count()
@@ -137,45 +119,6 @@ func _get_surface_arrays(surface_id: int):
 
 	if surface_id < _surface_wrappers.size() and _surface_wrappers[surface_id].has_vertices_precommit():
 		arrays[Mesh.ARRAY_VERTEX] = _surface_wrappers[surface_id].get_vertices_precommit()
-	return arrays
-
-func _remove_per_vertex_entries(arrays: Array, vertex_ids_to_remove: Dictionary, old_vertex_count: int) -> Array:
-	if arrays[Mesh.ARRAY_NORMAL] != null:
-		var old: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
-		var new_arr := PackedVector3Array()
-		for i in old_vertex_count:
-			if not vertex_ids_to_remove.has(i):
-				new_arr.append(old[i])
-		arrays[Mesh.ARRAY_NORMAL] = new_arr
-	if arrays[Mesh.ARRAY_TANGENT] != null:
-		var old: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT]
-		var new_arr := PackedFloat32Array()
-		for i in old_vertex_count:
-			if not vertex_ids_to_remove.has(i):
-				for j in 4:
-					new_arr.append(old[i * 4 + j])
-		arrays[Mesh.ARRAY_TANGENT] = new_arr
-	if arrays[Mesh.ARRAY_COLOR] != null:
-		var old: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
-		var new_arr := PackedColorArray()
-		for i in old_vertex_count:
-			if not vertex_ids_to_remove.has(i):
-				new_arr.append(old[i])
-		arrays[Mesh.ARRAY_COLOR] = new_arr
-	if arrays[Mesh.ARRAY_TEX_UV] != null:
-		var old: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-		var new_arr := PackedVector2Array()
-		for i in old_vertex_count:
-			if not vertex_ids_to_remove.has(i):
-				new_arr.append(old[i])
-		arrays[Mesh.ARRAY_TEX_UV] = new_arr
-	if arrays[Mesh.ARRAY_TEX_UV2] != null:
-		var old: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
-		var new_arr := PackedVector2Array()
-		for i in old_vertex_count:
-			if not vertex_ids_to_remove.has(i):
-				new_arr.append(old[i])
-		arrays[Mesh.ARRAY_TEX_UV2] = new_arr
 	return arrays
 
 ## Calculates the new axis-aligned boundary box for the mesh
