@@ -14,9 +14,13 @@ var _mesh_instance: MeshInstance3D
 var _mesh_edit_wrapper: MeshEditWrapper
 var _initialized := false
 var _selected_handle_ids: Array[int] = []
+var _drag_initial_positions: PackedVector3Array = PackedVector3Array()
 
 func _init(mesh_instance: MeshInstance3D):
 	_set_mesh_instance(mesh_instance)
+
+func is_handle_selected(handle_id: int) -> bool:
+	return handle_id in _selected_handle_ids
 
 func find_handle_at_screen_pos(camera: Camera3D, screen_pos: Vector2) -> int:
 	if _mesh_edit_wrapper == null:
@@ -82,11 +86,33 @@ func _set_handle(handle_id: int, secondary: bool, camera: Camera3D, screen_pos: 
 	# TODO: Use local coordinates as source of truth everywhere
 	var new_position_global := _get_3D_point_from_screen_pos(camera, screen_pos)
 	var new_position_local := _mesh_instance.to_local(new_position_global)
-	_mesh_edit_wrapper.move_point(handle_id, new_position_local, SURFACE_ZERO_ID)
+
+	if _drag_initial_positions.is_empty():
+		_drag_initial_positions = PackedVector3Array(
+			_mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)
+		)
+
+	if _should_drag_as_group(handle_id):
+		_mesh_edit_wrapper.move_points(_get_group_positions(handle_id, new_position_local), SURFACE_ZERO_ID)
+	else:
+		_mesh_edit_wrapper.move_point(handle_id, new_position_local, SURFACE_ZERO_ID)
+
 	_mesh_instance.mesh = _mesh_edit_wrapper.mesh # Overwrites original mesh!
 	_redraw()
 
+
+func _get_group_positions(handle_id: int, new_position_local: Vector3) -> Dictionary[int, Vector3]:
+	var delta := new_position_local - _drag_initial_positions[handle_id]
+	var point_positions: Dictionary[int, Vector3] = {}
+	for id in _selected_handle_ids:
+		point_positions[id] = _drag_initial_positions[id] + delta
+	return point_positions
+
+func _should_drag_as_group(handle_id: int) -> bool:
+	return handle_id in _selected_handle_ids and _selected_handle_ids.size() > 1
+
 func _commit_handle(handle_id: int, secondary: bool, restore: Variant, cancel: bool) -> void:
+	_drag_initial_positions = PackedVector3Array()
 	if not _mesh_instance or not _mesh_edit_wrapper or cancel:
 		return
 	_mesh_edit_wrapper.commit_changes(_mesh_instance)

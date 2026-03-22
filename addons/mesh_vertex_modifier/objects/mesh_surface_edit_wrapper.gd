@@ -44,6 +44,14 @@ func get_modified_vertices_array(unique_point_id: int, new_position: Vector3) ->
 		new_vertices[vertex_id] = new_position
 	return new_vertices
 
+func get_modified_vertices_array_multi(point_positions: Dictionary[int, Vector3]) -> PackedVector3Array:
+	var new_vertices = _vertices.duplicate()
+	for unique_point_id in point_positions:
+		var new_position: Vector3 = point_positions[unique_point_id]
+		for vertex_id in _unique_points_id_to_vertex_ids[unique_point_id]:
+			new_vertices[vertex_id] = new_position
+	return new_vertices
+
 func update_unique_point_position(unique_point_id: int, new_position: Vector3) -> void:
 	unique_points[unique_point_id] = new_position
 

@@ -42,6 +42,17 @@ func move_point(unique_point_id: int, new_position_local: Vector3, surface_id: i
 	_surface_wrappers[surface_id].set_vertices_precommit(new_vertices_precommit)
 	_surface_wrappers[surface_id].update_unique_point_position(unique_point_id, new_position_local)
 
+## Moves multiple unique points atomically on the GPU
+func move_points(point_positions: Dictionary[int, Vector3], surface_id: int = 0):
+	if _surface_wrappers.size() <= surface_id:
+		push_error("Invalid surface ID in move_points")
+		return
+	var new_vertices_precommit := _surface_wrappers[surface_id].get_modified_vertices_array_multi(point_positions)
+	mesh.surface_update_vertex_region(surface_id, 0, new_vertices_precommit.to_byte_array())
+	_surface_wrappers[surface_id].set_vertices_precommit(new_vertices_precommit)
+	for unique_point_id in point_positions:
+		_surface_wrappers[surface_id].update_unique_point_position(unique_point_id, point_positions[unique_point_id])
+
 ## Updates the vertices on the CPU after the movement was finished (CPU-heavy)
 func commit_changes(mesh_instance: MeshInstance3D) -> void:
 	if mesh == null: return

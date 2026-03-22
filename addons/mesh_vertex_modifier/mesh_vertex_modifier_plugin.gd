@@ -46,7 +46,10 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 
 	var clicked_id := gizmo.find_handle_at_screen_pos(camera, mb.position)
 	if clicked_id >= 0:
-		gizmo.select_handle(clicked_id, mb.shift_pressed)
+		if not mb.shift_pressed and gizmo.is_handle_selected(clicked_id):
+			pass  # Preserve selection so dragging moves all selected handles
+		else:
+			gizmo.select_handle(clicked_id, mb.shift_pressed)
 	else:
 		gizmo.clear_selection()
 	return EditorPlugin.AFTER_GUI_INPUT_PASS
