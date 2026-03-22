@@ -40,6 +40,7 @@ func move_point(unique_point_id: int, new_position_local: Vector3, surface_id: i
 	# surface_update_vertex_region only updates the vertices on the GPU
 	mesh.surface_update_vertex_region(surface_id, 0, new_vertices_precommit.to_byte_array())
 	_surface_wrappers[surface_id].set_vertices_precommit(new_vertices_precommit)
+	_surface_wrappers[surface_id].update_unique_point_position(unique_point_id, new_position_local)
 
 ## Updates the vertices on the CPU after the movement was finished (CPU-heavy)
 func commit_changes(mesh_instance: MeshInstance3D) -> void:

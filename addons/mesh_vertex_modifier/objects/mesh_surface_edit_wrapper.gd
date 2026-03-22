@@ -44,6 +44,9 @@ func get_modified_vertices_array(unique_point_id: int, new_position: Vector3) ->
 		new_vertices[vertex_id] = new_position
 	return new_vertices
 
+func update_unique_point_position(unique_point_id: int, new_position: Vector3) -> void:
+	unique_points[unique_point_id] = new_position
+
 func set_vertices_precommit(vertices_local: PackedVector3Array) -> void:
 	_vertices_precommit = vertices_local.duplicate()
 
