@@ -20,4 +20,6 @@ In some cases it can be required to reload the project to get the gizmo plugin t
 
 This plugin is licensed under the [Mozilla Public License 2.0 (MPL-2.0)](LICENSE).
 
-© 2025 Stefan Schätz
+© 2025-2026 Stefan Schätz
+
+This project was developed with the assistance of Claude (Anthropic).

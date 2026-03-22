@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# © 2025 Stefan Schätz
+# © 2025-2026 Stefan Schätz
 
 class_name MeshUtils
 extends RefCounted

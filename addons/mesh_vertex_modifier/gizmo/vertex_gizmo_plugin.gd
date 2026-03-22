@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# © 2025 Stefan Schätz
+# © 2025-2026 Stefan Schätz
 
 @tool
 class_name VertexGizmoPlugin
@@ -10,6 +10,10 @@ extends EditorNode3DGizmoPlugin
 func _init():
 	create_material("vertex", Color.RED)
 	create_handle_material("handles")
+	create_handle_material("handles_selected")
+	var selected_mat := get_material("handles_selected") as StandardMaterial3D
+	if selected_mat:
+		selected_mat.albedo_color = Color(1.0, 0.7, 0.0)
 
 func _has_gizmo(node: Node3D) -> bool:
 	return node is MeshInstance3D and (node as MeshInstance3D).mesh != null
