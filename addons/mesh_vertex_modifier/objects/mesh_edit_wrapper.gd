@@ -90,6 +90,81 @@ func _collect_vertex_ids_to_remove(unique_point_ids: Array[int], surface_id: int
 			vertex_ids_to_remove[vid] = true
 	return vertex_ids_to_remove
 
+## Splits the edge between two unique points by inserting a midpoint vertex.
+## All triangles containing that edge are split into two; the direct edge is removed.
+func split_edge_between_unique_points(uid_a: int, uid_b: int, surface_id: int = 0) -> void:
+	if _surface_wrappers.size() <= surface_id:
+		push_error("Invalid surface ID in split_edge_between_unique_points")
+		return
+
+	var surface_wrapper := _surface_wrappers[surface_id]
+	var vids_a: Array = surface_wrapper._unique_points_id_to_vertex_ids[uid_a]
+	var vids_b: Array = surface_wrapper._unique_points_id_to_vertex_ids[uid_b]
+	var vids_a_set: Dictionary = {}
+	var vids_b_set: Dictionary = {}
+	for v in vids_a: vids_a_set[v] = true
+	for v in vids_b: vids_b_set[v] = true
+
+	var arrays := mesh.surface_get_arrays(surface_id)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var midpoint := (surface_wrapper.unique_points[uid_a] + surface_wrapper.unique_points[uid_b]) / 2.0
+	var vid_mid := vertices.size()
+	vertices.append(midpoint)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays = _append_default_vertex_to_arrays(arrays)
+
+	var old_indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	if old_indices != null and old_indices.size() > 0:
+		var new_indices := PackedInt32Array()
+		var i := 0
+		while i + 2 < old_indices.size():
+			var tri := [old_indices[i], old_indices[i + 1], old_indices[i + 2]]
+			var has_a := -1
+			var has_b := -1
+			for t in 3:
+				if vids_a_set.has(tri[t]): has_a = t
+				if vids_b_set.has(tri[t]): has_b = t
+			if has_a >= 0 and has_b >= 0:
+				var vid_a: int = tri[has_a]
+				var vid_b: int = tri[has_b]
+				var pos_c := 3 - has_a - has_b
+				var vid_c: int = tri[pos_c]
+				# Preserve winding: if edge goes a→b in the original triangle, emit:
+				# [vid_a, vid_mid, vid_c] and [vid_mid, vid_b, vid_c]
+				# otherwise (edge goes b→a): [vid_b, vid_mid, vid_c] and [vid_mid, vid_a, vid_c]
+				if (has_a + 1) % 3 == has_b:
+					new_indices.append_array(PackedInt32Array([vid_a, vid_mid, vid_c]))
+					new_indices.append_array(PackedInt32Array([vid_mid, vid_b, vid_c]))
+				else:
+					new_indices.append_array(PackedInt32Array([vid_b, vid_mid, vid_c]))
+					new_indices.append_array(PackedInt32Array([vid_mid, vid_a, vid_c]))
+			else:
+				new_indices.append_array(PackedInt32Array([tri[0], tri[1], tri[2]]))
+			i += 3
+		arrays[Mesh.ARRAY_INDEX] = new_indices
+
+	var all_arrays: Array = []
+	for s in mesh.get_surface_count():
+		all_arrays.append(arrays if s == surface_id else mesh.surface_get_arrays(s))
+	_rebuild_all_surfaces(all_arrays)
+
+## Adds a new vertex at the given local position and rebuilds the mesh
+func add_vertex_at_position(position: Vector3, surface_id: int = 0) -> void:
+	if _surface_wrappers.size() <= surface_id:
+		push_error("Invalid surface ID in add_vertex_at_position")
+		return
+
+	var arrays := mesh.surface_get_arrays(surface_id)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	vertices.append(position)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays = _append_default_vertex_to_arrays(arrays)
+
+	var all_arrays: Array = []
+	for s in mesh.get_surface_count():
+		all_arrays.append(arrays if s == surface_id else mesh.surface_get_arrays(s))
+	_rebuild_all_surfaces(all_arrays)
+
 func _rebuild_all_surfaces(new_arrays_per_surface: Array) -> void:
 	var surface_count := mesh.get_surface_count()
 	var prim_list: Array = []
@@ -119,6 +194,29 @@ func _get_surface_arrays(surface_id: int):
 
 	if surface_id < _surface_wrappers.size() and _surface_wrappers[surface_id].has_vertices_precommit():
 		arrays[Mesh.ARRAY_VERTEX] = _surface_wrappers[surface_id].get_vertices_precommit()
+	return arrays
+
+func _append_default_vertex_to_arrays(arrays: Array) -> Array:
+	if arrays[Mesh.ARRAY_NORMAL] != null:
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		normals.append(Vector3.UP)
+		arrays[Mesh.ARRAY_NORMAL] = normals
+	if arrays[Mesh.ARRAY_TANGENT] != null:
+		var tangents: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT]
+		tangents.append_array(PackedFloat32Array([1.0, 0.0, 0.0, 1.0]))
+		arrays[Mesh.ARRAY_TANGENT] = tangents
+	if arrays[Mesh.ARRAY_COLOR] != null:
+		var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		colors.append(Color.WHITE)
+		arrays[Mesh.ARRAY_COLOR] = colors
+	if arrays[Mesh.ARRAY_TEX_UV] != null:
+		var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+		uvs.append(Vector2.ZERO)
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+	if arrays[Mesh.ARRAY_TEX_UV2] != null:
+		var uvs2: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
+		uvs2.append(Vector2.ZERO)
+		arrays[Mesh.ARRAY_TEX_UV2] = uvs2
 	return arrays
 
 ## Calculates the new axis-aligned boundary box for the mesh

@@ -10,6 +10,7 @@ extends EditorPlugin
 var _gizmo_plugin: VertexGizmoPlugin
 var _inspector_watcher := MeshInspectorWatcher.new()
 var _toolbar: HBoxContainer
+var _btn_add_vertex: Button
 var _btn_delete_vertex: Button
 
 func _enter_tree():
@@ -69,6 +70,12 @@ func _create_toolbar() -> void:
 	_toolbar = HBoxContainer.new()
 	_toolbar.add_child(VSeparator.new())
 
+	_btn_add_vertex = Button.new()
+	_btn_add_vertex.text = "Add Vertex"
+	_btn_add_vertex.disabled = true
+	_btn_add_vertex.pressed.connect(_on_add_vertex_pressed)
+	_toolbar.add_child(_btn_add_vertex)
+
 	_btn_delete_vertex = Button.new()
 	_btn_delete_vertex.text = "Delete Vertex"
 	_btn_delete_vertex.disabled = true
@@ -86,7 +93,14 @@ func _update_toolbar_state() -> void:
 	_toolbar.show()
 	var selected := gizmo.get_selected_handle_count()
 	var total := gizmo.get_total_handle_count()
+	_btn_add_vertex.disabled = selected < 2
 	_btn_delete_vertex.disabled = selected < 1 or (total - selected) < 3
+
+func _on_add_vertex_pressed() -> void:
+	var gizmo := _get_current_vertex_gizmo()
+	if gizmo:
+		gizmo.add_vertex_at_selection_midpoint()
+	_update_toolbar_state()
 
 func _on_delete_vertex_pressed() -> void:
 	var gizmo := _get_current_vertex_gizmo()

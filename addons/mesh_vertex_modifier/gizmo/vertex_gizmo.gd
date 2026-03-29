@@ -37,6 +37,15 @@ func delete_selected_handles() -> void:
 	_selected_handle_ids.clear()
 	_mesh_instance.update_gizmos()
 
+func add_vertex_at_selection_midpoint() -> void:
+	if _mesh_edit_wrapper == null or _selected_handle_ids.size() < 2:
+		return
+	_mesh_edit_wrapper.split_edge_between_unique_points(
+		_selected_handle_ids[0], _selected_handle_ids[1], SURFACE_ZERO_ID
+	)
+	_selected_handle_ids.clear()
+	_mesh_instance.update_gizmos()
+
 func find_handle_at_screen_pos(camera: Camera3D, screen_pos: Vector2) -> int:
 	if _mesh_edit_wrapper == null:
 		return -1
