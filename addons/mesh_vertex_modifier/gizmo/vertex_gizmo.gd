@@ -98,7 +98,6 @@ func _redraw() -> void:
 		_draw_handles()
 
 func _set_handle(handle_id: int, secondary: bool, camera: Camera3D, screen_pos: Vector2):
-	# TODO: Use local coordinates as source of truth everywhere
 	var new_position_global := _get_3D_point_from_screen_pos(camera, screen_pos)
 	var new_position_local := _mesh_instance.to_local(new_position_global)
 
