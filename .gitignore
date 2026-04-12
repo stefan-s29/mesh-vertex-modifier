@@ -23,6 +23,9 @@ crash.log
 data_*/
 mono_crash.*.json
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # System-specific
 .DS_Store
 Thumbs.db

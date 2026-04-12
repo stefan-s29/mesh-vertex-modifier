@@ -192,8 +192,13 @@ func _get_surface_arrays(surface_id: int):
 	if arrays.is_empty():
 		arrays = []; arrays.resize(Mesh.ARRAY_MAX)
 
-	if surface_id < _surface_wrappers.size() and _surface_wrappers[surface_id].has_vertices_precommit():
-		arrays[Mesh.ARRAY_VERTEX] = _surface_wrappers[surface_id].get_vertices_precommit()
+	if surface_id < _surface_wrappers.size():
+		var wrapper := _surface_wrappers[surface_id]
+		if wrapper.has_vertices_precommit():
+			arrays[Mesh.ARRAY_VERTEX] = wrapper.get_vertices_precommit()
+		var new_indices := wrapper.get_retriangulated_indices(arrays[Mesh.ARRAY_VERTEX])
+		if not new_indices.is_empty():
+			arrays[Mesh.ARRAY_INDEX] = new_indices
 	return arrays
 
 func _append_default_vertex_to_arrays(arrays: Array) -> Array:
