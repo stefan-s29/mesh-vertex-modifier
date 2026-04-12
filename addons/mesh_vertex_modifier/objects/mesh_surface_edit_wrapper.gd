@@ -13,6 +13,8 @@ var _unique_points_id_to_vertex_ids: Dictionary[int,Array] = {}
 var _vertices_precommit: PackedVector3Array = PackedVector3Array()
 var _boundary_loop: Array[int] = []
 var _face_normal: Vector3 = Vector3.ZERO
+var _tangent: Vector3 = Vector3.ZERO
+var _bitangent: Vector3 = Vector3.ZERO
 
 func _init(_id: int, mesh: ArrayMesh):
 	id = _id
@@ -97,6 +99,14 @@ func _compute_face_normal(indices: PackedInt32Array) -> void:
 	var is_non_degenerate := unnormalized_normal.length_squared() > 1e-10
 	if is_non_degenerate:
 		_face_normal = unnormalized_normal.normalized()
+		_compute_coordinate_frame()
+
+func _compute_coordinate_frame() -> void:
+	if abs(_face_normal.dot(Vector3.UP)) < 0.99:
+		_tangent = Vector3.UP.cross(_face_normal).normalized()
+	else:
+		_tangent = Vector3.RIGHT.cross(_face_normal).normalized()
+	_bitangent = _face_normal.cross(_tangent)
 
 ## Re-triangulates the polygon defined by _boundary_loop using the given vertex
 ## positions, by projecting it onto its own plane and running ear-clipping via
@@ -106,23 +116,12 @@ func get_retriangulated_indices(committed_vertices: PackedVector3Array) -> Packe
 	if _boundary_loop.size() < 3 or _face_normal == Vector3.ZERO:
 		return PackedInt32Array()
 
-	# Use the normal stored at load time so that vertex moves can never flip
-	# the projection plane and invert the winding order.
-	var normal := _face_normal
-
-	# Build an orthonormal 2D frame on the polygon plane
-	var tangent: Vector3
-	if abs(normal.dot(Vector3.UP)) < 0.99:
-		tangent = Vector3.UP.cross(normal).normalized()
-	else:
-		tangent = Vector3.RIGHT.cross(normal).normalized()
-	var bitangent := normal.cross(tangent)
-
-	# Project each boundary vertex onto the plane
+	# Project each boundary vertex onto the polygon plane.
+	# _tangent/_bitangent are derived from _face_normal at load time, so vertex
+	# moves can never flip the projection plane and invert the winding order.
 	var vertex_projections := PackedVector2Array()
 	for vertex_id in _boundary_loop:
-		var v := committed_vertices[vertex_id]
-		vertex_projections.append(Vector2(v.dot(tangent), v.dot(bitangent)))
+		vertex_projections.append(_to_2d(committed_vertices[vertex_id]))
 
 	var tri_indices := Geometry2D.triangulate_polygon(vertex_projections)
 	if tri_indices.is_empty():
@@ -135,7 +134,7 @@ func get_retriangulated_indices(committed_vertices: PackedVector3Array) -> Packe
 	var p2 := committed_vertices[_boundary_loop[tri_indices[2]]]
 	var edge_a := p1 - p0
 	var edge_b := p2 - p0
-	if edge_a.cross(edge_b).dot(normal) < 0.0:
+	if edge_a.cross(edge_b).dot(_face_normal) < 0.0:
 		for i in range(0, tri_indices.size(), 3):
 			var tmp := tri_indices[i + 1]
 			tri_indices[i + 1] = tri_indices[i + 2]
@@ -146,6 +145,49 @@ func get_retriangulated_indices(committed_vertices: PackedVector3Array) -> Packe
 	for loop_index in tri_indices:
 		new_indices.append(_boundary_loop[loop_index])
 	return new_indices
+
+func _to_2d(v: Vector3) -> Vector2:
+	return Vector2(v.dot(_tangent), v.dot(_bitangent))
+
+## Builds a VertexDragConstraint for the given unique point, precomputing the
+## 2D forbidden regions that would cause a self-intersecting polygon.
+## Returns null if the vertex is not on the boundary or the surface has no valid plane.
+func build_drag_constraint(unique_point_id: int) -> VertexDragConstraint:
+	if _boundary_loop.is_empty() or _face_normal == Vector3.ZERO:
+		return null
+
+	# Find the boundary loop index for the moving vertex via its vertex IDs
+	var vertex_ids_for_uid: Array = _unique_points_id_to_vertex_ids[unique_point_id]
+	var loop_index := -1
+	for i in _boundary_loop.size():
+		if _boundary_loop[i] in vertex_ids_for_uid:
+			loop_index = i
+			break
+	if loop_index == -1:
+		return null
+
+	var n := _boundary_loop.size()
+	var left_index := (loop_index - 1 + n) % n
+	var right_index := (loop_index + 1) % n
+
+	var neighbors_2d: Array[Vector2] = [
+		_to_2d(_vertices[_boundary_loop[left_index]]),
+		_to_2d(_vertices[_boundary_loop[right_index]])
+	]
+
+	# Non-adjacent edges: all boundary edges except the two attached to the moving vertex
+	var non_adjacent_edges: Array = []
+	for j in n:
+		if j == left_index or j == loop_index:
+			continue
+		non_adjacent_edges.append([
+			_to_2d(_vertices[_boundary_loop[j]]),
+			_to_2d(_vertices[_boundary_loop[(j + 1) % n]])
+		])
+
+	return VertexDragConstraint.new(
+		unique_points[unique_point_id], neighbors_2d, non_adjacent_edges, _tangent, _bitangent
+	)
 
 func get_modified_vertices_array(unique_point_id: int, new_position: Vector3) -> PackedVector3Array:
 	var modified_vertices = _unique_points_id_to_vertex_ids[unique_point_id]

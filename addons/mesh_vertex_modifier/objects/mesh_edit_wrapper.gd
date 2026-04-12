@@ -10,6 +10,7 @@ const MeshSurfaceVertexFilter = preload("res://addons/mesh_vertex_modifier/objec
 
 var mesh: ArrayMesh
 var _surface_wrappers: Array[MeshSurfaceEditWrapper]
+var _drag_constraint: VertexDragConstraint = null
 
 func _init(_mesh: ArrayMesh):
 	mesh = _mesh
@@ -28,6 +29,16 @@ func get_unique_points_for_surface(surface_id: int = 0) -> Array[Vector3]:
 		return []
 	return _surface_wrappers[surface_id].unique_points
 
+## Precomputes the drag constraint for the given vertex so that move_point can
+## clamp positions during the drag. Call end_drag when the drag finishes.
+func begin_drag(unique_point_id: int, surface_id: int = 0) -> void:
+	if _surface_wrappers.size() <= surface_id:
+		return
+	_drag_constraint = _surface_wrappers[surface_id].build_drag_constraint(unique_point_id)
+
+func end_drag() -> void:
+	_drag_constraint = null
+
 ## Updates the vertex position on the GPU, which is immediately visible in the 3D view;
 ## the CPU update is heavy and therefore carried out by calling commit_changes()
 ## after the movement is finished
@@ -35,14 +46,17 @@ func move_point(unique_point_id: int, new_position_local: Vector3, surface_id: i
 	if _surface_wrappers.size() <= surface_id:
 		push_error("Invalid surface ID in move_point")
 		return
+	var clamped_position := new_position_local
+	if _drag_constraint != null:
+		clamped_position = _drag_constraint.clamp_position(new_position_local)
 	var new_vertices_precommit: PackedVector3Array = _surface_wrappers[surface_id].get_modified_vertices_array(
 		unique_point_id,
-		new_position_local
+		clamped_position
 	)
 	# surface_update_vertex_region only updates the vertices on the GPU
 	mesh.surface_update_vertex_region(surface_id, 0, new_vertices_precommit.to_byte_array())
 	_surface_wrappers[surface_id].set_vertices_precommit(new_vertices_precommit)
-	_surface_wrappers[surface_id].update_unique_point_position(unique_point_id, new_position_local)
+	_surface_wrappers[surface_id].update_unique_point_position(unique_point_id, clamped_position)
 
 ## Moves multiple unique points atomically on the GPU
 func move_points(point_positions: Dictionary[int, Vector3], surface_id: int = 0):
