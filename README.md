@@ -1,8 +1,8 @@
 # Mesh Vertex Modifier for Godot Engine
 
-A simple tool for creating and editing ArrayMeshes in MeshInstance3D nodes.
+A simple tool for creating and editing planar ArrayMeshes in MeshInstance3D nodes.
 
-Compatible with Godot v4.4.
+Compatible with Godot v4.6.
 
 ## Installation
 
