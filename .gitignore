@@ -34,3 +34,4 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+/test_meshes
