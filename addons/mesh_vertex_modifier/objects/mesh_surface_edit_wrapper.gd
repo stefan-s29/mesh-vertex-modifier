@@ -189,6 +189,22 @@ func build_drag_constraint(unique_point_id: int) -> VertexDragConstraint:
 		unique_points[unique_point_id], neighbors_2d, non_adjacent_edges, _tangent, _bitangent
 	)
 
+
+func get_face_normal() -> Vector3:
+	return _face_normal
+
+## Returns the current positions of the boundary loop vertices in order.
+## Uses the pre-commit vertex positions during a drag, falling back to the
+## committed positions otherwise.
+func get_boundary_positions() -> PackedVector3Array:
+	var positions := PackedVector3Array()
+	if _boundary_loop.is_empty():
+		return positions
+	var verts := _vertices_precommit if has_vertices_precommit() else _vertices
+	for vertex_id in _boundary_loop:
+		positions.append(verts[vertex_id])
+	return positions
+
 func get_modified_vertices_array(unique_point_id: int, new_position: Vector3) -> PackedVector3Array:
 	var modified_vertices = _unique_points_id_to_vertex_ids[unique_point_id]
 	var new_vertices = _vertices.duplicate()

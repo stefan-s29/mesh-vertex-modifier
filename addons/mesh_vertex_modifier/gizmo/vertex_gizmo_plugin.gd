@@ -9,6 +9,11 @@ extends EditorNode3DGizmoPlugin
 
 func _init():
 	create_material("vertex", Color.RED)
+	# Albedo unused — actual color comes from surface_set_color via use_vertex_color=true.
+	create_material("polygon_outline", Color.WHITE, false, true, true)
+	var boundary_mat := get_material("polygon_outline") as StandardMaterial3D
+	if boundary_mat:
+		boundary_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	create_handle_material("handles")
 	create_handle_material("handles_selected")
 	var selected_mat := get_material("handles_selected") as StandardMaterial3D

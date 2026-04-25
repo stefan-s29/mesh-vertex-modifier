@@ -9,6 +9,7 @@ extends EditorNode3DGizmo
 
 const SURFACE_ZERO_ID = 0
 const HANDLE_PICK_RADIUS_PX = 10.0
+const BOUNDARY_DRAG_COLOR = Color(1.0, 0.0, 0.6)
 
 var _mesh_instance: MeshInstance3D
 var _mesh_edit_wrapper: MeshEditWrapper
@@ -161,6 +162,29 @@ func _draw_handles() -> void:
 		add_handles(normal_positions, get_plugin().get_material("handles"), normal_ids)
 	if selected_positions.size() > 0:
 		add_handles(selected_positions, get_plugin().get_material("handles_selected"), selected_ids)
+	if not _drag_initial_positions.is_empty():
+		_draw_boundary_lines()
+
+func _draw_boundary_lines() -> void:
+	var positions := _mesh_edit_wrapper.get_boundary_positions_for_surface(SURFACE_ZERO_ID)
+	if positions.size() < 2:
+		return
+	# Offset slightly along both sides of the face normal so the lines float just
+	# above the mesh surface regardless of which side the camera is on.
+	var normal := _mesh_edit_wrapper.get_face_normal_for_surface(SURFACE_ZERO_ID)
+	var offset := normal * 0.001
+	var im := ImmediateMesh.new()
+	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	im.surface_set_color(BOUNDARY_DRAG_COLOR)
+	for i in positions.size():
+		var a := positions[i]
+		var b := positions[(i + 1) % positions.size()]
+		im.surface_add_vertex(a + offset)
+		im.surface_add_vertex(b + offset)
+		im.surface_add_vertex(a - offset)
+		im.surface_add_vertex(b - offset)
+	im.surface_end()
+	add_mesh(im, get_plugin().get_material("polygon_outline"))
 
 func _has_mesh_been_replaced(current_mesh_instance):
 	var current_mesh_null = current_mesh_instance == null

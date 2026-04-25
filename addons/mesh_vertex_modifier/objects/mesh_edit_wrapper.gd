@@ -29,6 +29,16 @@ func get_unique_points_for_surface(surface_id: int = 0) -> Array[Vector3]:
 		return []
 	return _surface_wrappers[surface_id].unique_points
 
+func get_boundary_positions_for_surface(surface_id: int = 0) -> PackedVector3Array:
+	if _surface_wrappers.size() <= surface_id:
+		return PackedVector3Array()
+	return _surface_wrappers[surface_id].get_boundary_positions()
+
+func get_face_normal_for_surface(surface_id: int = 0) -> Vector3:
+	if _surface_wrappers.size() <= surface_id:
+		return Vector3.ZERO
+	return _surface_wrappers[surface_id].get_face_normal()
+
 ## Precomputes the drag constraint for the given vertex so that move_point can
 ## clamp positions during the drag. Call end_drag when the drag finishes.
 func begin_drag(unique_point_id: int, surface_id: int = 0) -> void:
