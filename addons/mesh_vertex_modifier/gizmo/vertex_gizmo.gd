@@ -114,6 +114,8 @@ func _set_handle(handle_id: int, secondary: bool, camera: Camera3D, screen_pos: 
 		_drag_initial_positions = PackedVector3Array(
 			_mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)
 		)
+		if not _should_drag_as_group(handle_id):
+			_mesh_edit_wrapper.begin_drag(handle_id, SURFACE_ZERO_ID)
 
 	if _should_drag_as_group(handle_id):
 		_mesh_edit_wrapper.move_points(_get_group_positions(handle_id, new_position_local), SURFACE_ZERO_ID)
@@ -136,6 +138,8 @@ func _should_drag_as_group(handle_id: int) -> bool:
 
 func _commit_handle(handle_id: int, secondary: bool, restore: Variant, cancel: bool) -> void:
 	_drag_initial_positions = PackedVector3Array()
+	if _mesh_edit_wrapper:
+		_mesh_edit_wrapper.end_drag()
 	if not _mesh_instance or not _mesh_edit_wrapper or cancel:
 		return
 	_mesh_edit_wrapper.commit_changes(_mesh_instance)
