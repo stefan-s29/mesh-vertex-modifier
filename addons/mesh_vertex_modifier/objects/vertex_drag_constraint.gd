@@ -27,6 +27,24 @@ func _init(
 	_neighbor_positions_2d = neighbors_2d
 	_non_adjacent_edges_2d = non_adjacent_edges_2d
 
+## Returns the furthest t in [0, 1] along the drag path to proposed_position_3d
+## that does not create a self-intersecting polygon.
+## Used by group drag to find a shared safe t across multiple vertices.
+func compute_max_safe_t(proposed_position_3d: Vector3) -> float:
+	var proposed_2d := _to_2d(proposed_position_3d)
+	var drag_delta := proposed_2d - _initial_position_2d
+	if drag_delta.length_squared() < 1e-12:
+		return 1.0
+	var max_safe_t := 1.0
+	for neighbor_2d: Vector2 in _neighbor_positions_2d:
+		for edge: Array in _non_adjacent_edges_2d:
+			var t := _find_first_intersection_t(
+				neighbor_2d, _initial_position_2d, drag_delta, edge[0], edge[1]
+			)
+			if t < max_safe_t:
+				max_safe_t = t
+	return maxf(0.0, max_safe_t - 1e-4)
+
 ## Clamps proposed_position_3d to the furthest position along the drag path
 ## from the initial position that does not create a self-intersecting polygon.
 func clamp_position(proposed_position_3d: Vector3) -> Vector3:
@@ -34,17 +52,7 @@ func clamp_position(proposed_position_3d: Vector3) -> Vector3:
 	var drag_delta := proposed_2d - _initial_position_2d
 	if drag_delta.length_squared() < 1e-12:
 		return proposed_position_3d
-
-	var t_max := 1.0
-	for neighbor_2d: Vector2 in _neighbor_positions_2d:
-		for edge: Array in _non_adjacent_edges_2d:
-			var t := _find_first_intersection_t(
-				neighbor_2d, _initial_position_2d, drag_delta, edge[0], edge[1]
-			)
-			if t < t_max:
-				t_max = t
-
-	var t_clamped := maxf(0.0, t_max - 1e-4)
+	var t_clamped := compute_max_safe_t(proposed_position_3d)
 	return _initial_position_3d \
 		+ t_clamped * drag_delta.x * _tangent \
 		+ t_clamped * drag_delta.y * _bitangent

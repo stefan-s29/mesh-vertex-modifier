@@ -115,7 +115,9 @@ func _set_handle(handle_id: int, secondary: bool, camera: Camera3D, screen_pos: 
 		_drag_initial_positions = PackedVector3Array(
 			_mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)
 		)
-		if not _should_drag_as_group(handle_id):
+		if _should_drag_as_group(handle_id):
+			_mesh_edit_wrapper.begin_group_drag(_selected_handle_ids, SURFACE_ZERO_ID)
+		else:
 			_mesh_edit_wrapper.begin_drag(handle_id, SURFACE_ZERO_ID)
 
 	if _should_drag_as_group(handle_id):
@@ -212,6 +214,10 @@ func _update_mesh_edit_wrapper():
 func _get_3D_point_from_screen_pos(camera: Camera3D, screen_pos: Vector2) -> Vector3:
 	var ray_origin = camera.project_ray_origin(screen_pos)
 	var ray_dir = camera.project_ray_normal(screen_pos)
-
-	var plane = Plane(Vector3.UP, 0.0)
+	var face_normal_local := _mesh_edit_wrapper.get_face_normal_for_surface(SURFACE_ZERO_ID)
+	var face_normal_world := (_mesh_instance.global_transform.basis * face_normal_local).normalized()
+	var points := _mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)
+	if face_normal_world == Vector3.ZERO or points.is_empty():
+		return Plane(Vector3.UP, 0.0).intersects_ray(ray_origin, ray_dir)
+	var plane := Plane(face_normal_world, _mesh_instance.to_global(points[0]))
 	return plane.intersects_ray(ray_origin, ray_dir)

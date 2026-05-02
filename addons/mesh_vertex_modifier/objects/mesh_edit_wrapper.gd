@@ -10,7 +10,8 @@ const MeshSurfaceVertexFilter = preload("res://addons/mesh_vertex_modifier/objec
 
 var mesh: ArrayMesh
 var _surface_wrappers: Array[MeshSurfaceEditWrapper]
-var _drag_constraint: VertexDragConstraint = null
+var _drag_constraints: Dictionary[int, VertexDragConstraint] = {}
+var _drag_start_positions: Dictionary[int, Vector3] = {}
 
 func _init(_mesh: ArrayMesh):
 	mesh = _mesh
@@ -39,15 +40,37 @@ func get_face_normal_for_surface(surface_id: int = 0) -> Vector3:
 		return Vector3.ZERO
 	return _surface_wrappers[surface_id].get_face_normal()
 
-## Precomputes the drag constraint for the given vertex so that move_point can
-## clamp positions during the drag. Call end_drag when the drag finishes.
+## Precomputes the drag constraint for a single vertex so that move_point can
+## clamp its position during the drag. Call end_drag when the drag finishes.
 func begin_drag(unique_point_id: int, surface_id: int = 0) -> void:
 	if _surface_wrappers.size() <= surface_id:
 		return
-	_drag_constraint = _surface_wrappers[surface_id].build_drag_constraint(unique_point_id)
+	_drag_constraints.clear()
+	_drag_start_positions.clear()
+	var constraint := _surface_wrappers[surface_id].build_drag_constraint(unique_point_id)
+	if constraint != null:
+		_drag_constraints[unique_point_id] = constraint
+	_drag_start_positions[unique_point_id] = _surface_wrappers[surface_id].unique_points[unique_point_id]
+
+## Precomputes drag constraints for a group of vertices moving together so that
+## move_points can clamp them uniformly. Call end_drag when the drag finishes.
+## Each vertex is constrained as if it were the only one moving — treating all
+## neighbors as fixed — and the minimum safe t across all vertices is applied
+## uniformly, preserving relative positions.
+func begin_group_drag(unique_point_ids: Array[int], surface_id: int = 0) -> void:
+	if _surface_wrappers.size() <= surface_id:
+		return
+	_drag_constraints.clear()
+	_drag_start_positions.clear()
+	for uid in unique_point_ids:
+		var constraint := _surface_wrappers[surface_id].build_drag_constraint(uid)
+		if constraint != null:
+			_drag_constraints[uid] = constraint
+		_drag_start_positions[uid] = _surface_wrappers[surface_id].unique_points[uid]
 
 func end_drag() -> void:
-	_drag_constraint = null
+	_drag_constraints.clear()
+	_drag_start_positions.clear()
 
 ## Updates the vertex position on the GPU, which is immediately visible in the 3D view;
 ## the CPU update is heavy and therefore carried out by calling commit_changes()
@@ -57,8 +80,8 @@ func move_point(unique_point_id: int, new_position_local: Vector3, surface_id: i
 		push_error("Invalid surface ID in move_point")
 		return
 	var clamped_position := new_position_local
-	if _drag_constraint != null:
-		clamped_position = _drag_constraint.clamp_position(new_position_local)
+	if _drag_constraints.has(unique_point_id):
+		clamped_position = _drag_constraints[unique_point_id].clamp_position(new_position_local)
 	var new_vertices_precommit: PackedVector3Array = _surface_wrappers[surface_id].get_modified_vertices_array(
 		unique_point_id,
 		clamped_position
@@ -73,11 +96,33 @@ func move_points(point_positions: Dictionary[int, Vector3], surface_id: int = 0)
 	if _surface_wrappers.size() <= surface_id:
 		push_error("Invalid surface ID in move_points")
 		return
-	var new_vertices_precommit := _surface_wrappers[surface_id].get_modified_vertices_array_multi(point_positions)
+	var constrained_positions := _apply_group_constraints(point_positions)
+	var new_vertices_precommit := _surface_wrappers[surface_id].get_modified_vertices_array_multi(constrained_positions)
 	mesh.surface_update_vertex_region(surface_id, 0, new_vertices_precommit.to_byte_array())
 	_surface_wrappers[surface_id].set_vertices_precommit(new_vertices_precommit)
-	for unique_point_id in point_positions:
-		_surface_wrappers[surface_id].update_unique_point_position(unique_point_id, point_positions[unique_point_id])
+	for uid in constrained_positions:
+		_surface_wrappers[surface_id].update_unique_point_position(uid, constrained_positions[uid])
+
+## Finds the most restrictive safe t across all group drag constraints and
+## scales all positions back to that t from their drag start positions.
+func _apply_group_constraints(
+	point_positions: Dictionary[int, Vector3]
+) -> Dictionary[int, Vector3]:
+	if _drag_constraints.is_empty():
+		return point_positions
+	var min_t := 1.0
+	for uid: int in _drag_constraints:
+		if point_positions.has(uid):
+			var t: float = _drag_constraints[uid].compute_max_safe_t(point_positions[uid])
+			if t < min_t:
+				min_t = t
+	if min_t >= 1.0:
+		return point_positions
+	var result: Dictionary[int, Vector3] = {}
+	for uid: int in point_positions:
+		var start: Vector3 = _drag_start_positions[uid]
+		result[uid] = start + min_t * (point_positions[uid] - start)
+	return result
 
 ## Updates the vertices on the CPU after the movement was finished (CPU-heavy)
 func commit_changes(mesh_instance: MeshInstance3D) -> void:
