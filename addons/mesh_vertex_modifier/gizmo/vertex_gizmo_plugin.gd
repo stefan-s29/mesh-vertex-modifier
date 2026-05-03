@@ -8,6 +8,7 @@ class_name VertexGizmoPlugin
 extends EditorNode3DGizmoPlugin
 
 var undo_redo: EditorUndoRedoManager
+var clamping_enabled: bool = true
 
 func _init():
 	create_material("vertex", Color.RED)

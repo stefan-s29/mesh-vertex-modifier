@@ -122,10 +122,12 @@ func _set_handle(handle_id: int, secondary: bool, camera: Camera3D, screen_pos: 
 		_drag_initial_positions = PackedVector3Array(
 			_mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)
 		)
-		if _should_drag_as_group(handle_id):
-			_mesh_edit_wrapper.begin_group_drag(_selected_handle_ids, SURFACE_ZERO_ID)
-		else:
-			_mesh_edit_wrapper.begin_drag(handle_id, SURFACE_ZERO_ID)
+		var plugin := get_plugin() as VertexGizmoPlugin
+		if plugin.clamping_enabled:
+			if _should_drag_as_group(handle_id):
+				_mesh_edit_wrapper.begin_group_drag(_selected_handle_ids, SURFACE_ZERO_ID)
+			else:
+				_mesh_edit_wrapper.begin_drag(handle_id, SURFACE_ZERO_ID)
 
 	if _should_drag_as_group(handle_id):
 		_mesh_edit_wrapper.move_points(_get_group_positions(handle_id, new_position_local), SURFACE_ZERO_ID)

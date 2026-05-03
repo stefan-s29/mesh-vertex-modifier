@@ -10,6 +10,7 @@ extends EditorPlugin
 var _gizmo_plugin: VertexGizmoPlugin
 var _inspector_watcher := MeshInspectorWatcher.new()
 var _toolbar: HBoxContainer
+var _btn_clamp_vertices: Button
 var _btn_add_vertex: Button
 var _btn_delete_vertex: Button
 
@@ -71,6 +72,9 @@ func _create_toolbar() -> void:
 	_toolbar = HBoxContainer.new()
 	_toolbar.add_child(VSeparator.new())
 
+	_btn_clamp_vertices = _create_clamp_vertices_button()
+	_toolbar.add_child(_btn_clamp_vertices)
+
 	_btn_add_vertex = Button.new()
 	_btn_add_vertex.text = "Add Vertex"
 	_btn_add_vertex.disabled = true
@@ -96,6 +100,26 @@ func _update_toolbar_state() -> void:
 	var total := gizmo.get_total_handle_count()
 	_btn_add_vertex.disabled = selected < 2
 	_btn_delete_vertex.disabled = selected < 1 or (total - selected) < 3
+
+func _create_clamp_vertices_button() -> Button:
+	var btn := Button.new()
+	btn.text = "Clamp vertices"
+	btn.toggle_mode = true
+	btn.button_pressed = true
+	var accent := EditorInterface.get_editor_theme().get_color("accent_color", "Editor")
+	var style_active := StyleBoxFlat.new()
+	style_active.bg_color = Color(accent.r, accent.g, accent.b, 0.35)
+	style_active.set_corner_radius_all(3)
+	var style_empty := StyleBoxEmpty.new()
+	btn.add_theme_stylebox_override("normal", style_empty)
+	btn.add_theme_stylebox_override("hover", style_empty)
+	btn.add_theme_stylebox_override("pressed", style_active)
+	btn.add_theme_stylebox_override("hover_pressed", style_active)
+	btn.toggled.connect(_on_clamp_vertices_toggled)
+	return btn
+
+func _on_clamp_vertices_toggled(pressed: bool) -> void:
+	_gizmo_plugin.clamping_enabled = pressed
 
 func _on_add_vertex_pressed() -> void:
 	var gizmo := _get_current_vertex_gizmo()
