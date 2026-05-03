@@ -7,6 +7,8 @@
 class_name VertexGizmoPlugin
 extends EditorNode3DGizmoPlugin
 
+var undo_redo: EditorUndoRedoManager
+
 func _init():
 	create_material("vertex", Color.RED)
 	# Albedo unused — actual color comes from surface_set_color via use_vertex_color=true.
@@ -28,6 +30,6 @@ func _get_gizmo_name():
 
 func _create_gizmo(node: Node3D):
 	if node is MeshInstance3D and node.mesh != null:
-		return VertexGizmo.new(node as MeshInstance3D)
+		return VertexGizmo.new(node as MeshInstance3D, undo_redo)
 	else:
 		return null

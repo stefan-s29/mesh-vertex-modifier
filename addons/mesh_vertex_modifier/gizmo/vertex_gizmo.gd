@@ -13,11 +13,13 @@ const BOUNDARY_DRAG_COLOR = Color(1.0, 0.0, 0.6)
 
 var _mesh_instance: MeshInstance3D
 var _mesh_edit_wrapper: MeshEditWrapper
+var _undo_redo: EditorUndoRedoManager
 var _initialized := false
 var _selected_handle_ids: Array[int] = []
 var _drag_initial_positions: PackedVector3Array = PackedVector3Array()
 
-func _init(mesh_instance: MeshInstance3D):
+func _init(mesh_instance: MeshInstance3D, undo_redo: EditorUndoRedoManager):
+	_undo_redo = undo_redo
 	_set_mesh_instance(mesh_instance)
 
 func get_selected_handle_count() -> int:
@@ -83,7 +85,12 @@ func _get_handle_name(handle_id: int, secondary: bool) -> String:
 	return 'Vertex ' + str(handle_id)
 
 func _get_handle_value(handle_id: int, secondary: bool) -> Variant:
-	return _mesh_instance.name
+	if _mesh_edit_wrapper == null:
+		return null
+	var snapshot: Array = []
+	for s in _mesh_edit_wrapper.mesh.get_surface_count():
+		snapshot.append(_mesh_edit_wrapper.mesh.surface_get_arrays(s))
+	return snapshot
 
 func _has_gizmo(node: Node3D) -> bool:
 	return node is MeshInstance3D and node.mesh != null
@@ -143,9 +150,24 @@ func _commit_handle(handle_id: int, secondary: bool, restore: Variant, cancel: b
 	_drag_initial_positions = PackedVector3Array()
 	if _mesh_edit_wrapper:
 		_mesh_edit_wrapper.end_drag()
-	if not _mesh_instance or not _mesh_edit_wrapper or cancel:
+	if not _mesh_instance or not _mesh_edit_wrapper:
+		return
+	if cancel:
+		_mesh_edit_wrapper.restore_state(restore, _mesh_instance)
 		return
 	_mesh_edit_wrapper.commit_changes(_mesh_instance)
+	_record_move_undo_action(restore)
+
+func _record_move_undo_action(before_snapshot: Variant) -> void:
+	if _undo_redo == null:
+		return
+	var after_snapshot: Array = []
+	for s in _mesh_edit_wrapper.mesh.get_surface_count():
+		after_snapshot.append(_mesh_edit_wrapper.mesh.surface_get_arrays(s))
+	_undo_redo.create_action("Move vertices")
+	_undo_redo.add_do_method(_mesh_edit_wrapper, &"restore_state", after_snapshot, _mesh_instance)
+	_undo_redo.add_undo_method(_mesh_edit_wrapper, &"restore_state", before_snapshot, _mesh_instance)
+	_undo_redo.commit_action(false)
 
 func _draw_handles() -> void:
 	var handle_positions := _mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)

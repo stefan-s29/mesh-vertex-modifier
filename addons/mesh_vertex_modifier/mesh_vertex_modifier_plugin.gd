@@ -15,6 +15,7 @@ var _btn_delete_vertex: Button
 
 func _enter_tree():
 	_gizmo_plugin = preload("res://addons/mesh_vertex_modifier/gizmo/vertex_gizmo_plugin.gd").new()
+	_gizmo_plugin.undo_redo = get_undo_redo()
 	add_node_3d_gizmo_plugin(_gizmo_plugin)
 	_inspector_watcher.start_watching(get_undo_redo())
 	_create_toolbar()

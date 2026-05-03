@@ -124,6 +124,12 @@ func _apply_group_constraints(
 		result[uid] = start + min_t * (point_positions[uid] - start)
 	return result
 
+## Rebuilds the mesh from a previously captured surface arrays snapshot.
+## Used by undo/redo and drag cancellation.
+func restore_state(arrays_per_surface: Array, mesh_instance: MeshInstance3D) -> void:
+	_rebuild_all_surfaces(arrays_per_surface)
+	mesh_instance.update_gizmos()
+
 ## Updates the vertices on the CPU after the movement was finished (CPU-heavy)
 func commit_changes(mesh_instance: MeshInstance3D) -> void:
 	if mesh == null: return
