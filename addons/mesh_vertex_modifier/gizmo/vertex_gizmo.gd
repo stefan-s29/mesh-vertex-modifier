@@ -17,6 +17,7 @@ var _undo_redo: EditorUndoRedoManager
 var _initialized := false
 var _selected_handle_ids: Array[int] = []
 var _drag_initial_positions: PackedVector3Array = PackedVector3Array()
+var _drag_before_snapshot: Array = []
 
 func _init(mesh_instance: MeshInstance3D, undo_redo: EditorUndoRedoManager):
 	_undo_redo = undo_redo
@@ -87,10 +88,13 @@ func _get_handle_name(handle_id: int, secondary: bool) -> String:
 func _get_handle_value(handle_id: int, secondary: bool) -> Variant:
 	if _mesh_edit_wrapper == null:
 		return null
-	var snapshot: Array = []
+	var points := _mesh_edit_wrapper.get_unique_points_for_surface(SURFACE_ZERO_ID)
+	if handle_id >= points.size():
+		return null
+	_drag_before_snapshot = []
 	for s in _mesh_edit_wrapper.mesh.get_surface_count():
-		snapshot.append(_mesh_edit_wrapper.mesh.surface_get_arrays(s))
-	return snapshot
+		_drag_before_snapshot.append(_mesh_edit_wrapper.mesh.surface_get_arrays(s))
+	return points[handle_id]
 
 func _has_gizmo(node: Node3D) -> bool:
 	return node is MeshInstance3D and node.mesh != null
@@ -153,15 +157,19 @@ func _commit_handle(handle_id: int, secondary: bool, restore: Variant, cancel: b
 	if _mesh_edit_wrapper:
 		_mesh_edit_wrapper.end_drag()
 	if not _mesh_instance or not _mesh_edit_wrapper:
+		_drag_before_snapshot = []
 		return
 	if cancel:
-		_mesh_edit_wrapper.restore_state(restore, _mesh_instance)
+		if not _drag_before_snapshot.is_empty():
+			_mesh_edit_wrapper.restore_state(_drag_before_snapshot, _mesh_instance)
+		_drag_before_snapshot = []
 		return
 	_mesh_edit_wrapper.commit_changes(_mesh_instance)
-	_record_move_undo_action(restore)
+	_record_move_undo_action(_drag_before_snapshot)
+	_drag_before_snapshot = []
 
-func _record_move_undo_action(before_snapshot: Variant) -> void:
-	if _undo_redo == null:
+func _record_move_undo_action(before_snapshot: Array) -> void:
+	if _undo_redo == null or before_snapshot.is_empty():
 		return
 	var after_snapshot: Array = []
 	for s in _mesh_edit_wrapper.mesh.get_surface_count():
