@@ -19,10 +19,14 @@ func _init(_mesh: ArrayMesh):
 	_rebuild_surface_wrappers()
 
 func _rebuild_surface_wrappers():
+	var preserved_normals: Array[Vector3] = []
+	for sw in _surface_wrappers:
+		preserved_normals.append(sw.get_face_normal())
 	_surface_wrappers.clear()
 	var new_surface_wrappers: Array[MeshSurfaceEditWrapper] = []
 	for surface_id in mesh.get_surface_count():
-		new_surface_wrappers.append(MeshSurfaceEditWrapper.new(surface_id, mesh))
+		var known_normal := preserved_normals[surface_id] if surface_id < preserved_normals.size() else Vector3.ZERO
+		new_surface_wrappers.append(MeshSurfaceEditWrapper.new(surface_id, mesh, known_normal))
 	_surface_wrappers = new_surface_wrappers
 
 func get_unique_points_for_surface(surface_id: int = 0) -> Array[Vector3]:

@@ -16,13 +16,17 @@ var _face_normal: Vector3 = Vector3.ZERO
 var _tangent: Vector3 = Vector3.ZERO
 var _bitangent: Vector3 = Vector3.ZERO
 
-func _init(_id: int, mesh: ArrayMesh):
+func _init(_id: int, mesh: ArrayMesh, known_face_normal: Vector3 = Vector3.ZERO):
 	id = _id
 	var surface_arrays := mesh.surface_get_arrays(_id)
 	_vertices = surface_arrays[Mesh.ARRAY_VERTEX]
 	_extract_unique_points()
 	_extract_boundary_loop(surface_arrays[Mesh.ARRAY_INDEX])
-	_compute_face_normal(surface_arrays[Mesh.ARRAY_INDEX])
+	if known_face_normal != Vector3.ZERO:
+		_face_normal = known_face_normal
+		_compute_coordinate_frame()
+	else:
+		_compute_face_normal(surface_arrays[Mesh.ARRAY_INDEX])
 
 func _extract_unique_points():
 	var new_unique_points: Array[Vector3] = []
@@ -89,15 +93,12 @@ func _extract_boundary_loop(indices: PackedInt32Array) -> void:
 func _compute_face_normal(indices: PackedInt32Array) -> void:
 	if indices == null or indices.size() < 3:
 		return
-	
 	var edge_a := _vertices[indices[1]] - _vertices[indices[0]]
 	var edge_b := _vertices[indices[2]] - _vertices[indices[0]]
 	var unnormalized_normal := edge_a.cross(edge_b)
-	
 	# A degenerate triangle has collinear or coincident vertices, producing a
 	# zero-length cross product. The threshold guards against floating point errors.
-	var is_non_degenerate := unnormalized_normal.length_squared() > 1e-10
-	if is_non_degenerate:
+	if unnormalized_normal.length_squared() > 1e-10:
 		_face_normal = unnormalized_normal.normalized()
 		_compute_coordinate_frame()
 
@@ -117,8 +118,8 @@ func get_retriangulated_indices(committed_vertices: PackedVector3Array) -> Packe
 		return PackedInt32Array()
 
 	# Project each boundary vertex onto the polygon plane.
-	# _tangent/_bitangent are derived from _face_normal at load time, so vertex
-	# moves can never flip the projection plane and invert the winding order.
+	# _tangent/_bitangent are derived from _face_normal, which is established on
+	# first load and preserved across rebuilds so retriangulation can never change it.
 	var vertex_projections := PackedVector2Array()
 	for vertex_id in _boundary_loop:
 		vertex_projections.append(_to_2d(committed_vertices[vertex_id]))
